@@ -58,9 +58,29 @@ def wait_for_reboot(max_wait: int = 300):
             pass
 
         if time.time() - start_time > max_wait:
-            raise TimeoutError(f"Router did not come back online within {max_wait}. Giving up.")
+            raise TimeoutError(f"Router did not come back online within {max_wait} seconds. Giving up.")
 
         time.sleep(5)
+
+def wait_for_internet(max_wait: int = 300, url: str = "https://www.google.com"):
+    """
+    Verify that internet connectivity has returned by performing a GET request to the specified URL.
+    """
+    start_time = time.time()
+    while True:
+        try:
+            response = requests.get(url, timeout=5)
+            if response.status_code == 200:
+                logging.info("Internet connectivity has returned.")
+                return
+        except requests.exceptions.RequestException:
+            pass
+
+        if time.time() - start_time > max_wait:
+            raise TimeoutError(f"Internet connectivity did not return within {max_wait} seconds. Giving up.")
+
+        time.sleep(5)
+
 
 def main():
     # Connect to router
@@ -85,6 +105,13 @@ def main():
         wait_for_reboot()
     except TimeoutError:
         logging.exception("Router did not come back online. Exiting.")
+        return
+
+    logging.info("Waiting for internet connectivity...")
+    try:
+        wait_for_internet()
+    except TimeoutError:
+        logging.exception("Internet connectivity did not return. Exiting.")
         return
 
     logging.info(f"Measuring speed (post-reboot)...")
