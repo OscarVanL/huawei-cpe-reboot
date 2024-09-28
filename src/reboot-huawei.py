@@ -54,7 +54,7 @@ def wait_for_reboot(max_wait: int = 300):
                 if 0 < int(uptime) < 60:
                     logging.info(f"Got uptime of {format_uptime(int(uptime))}, assuming router has rebooted.")
                     return
-        except requests.exceptions.ConnectionError:
+        except (requests.exceptions.ConnectionError, requests.exceptions.ReadTimeout):
             pass
 
         if time.time() - start_time > max_wait:
@@ -82,6 +82,7 @@ def wait_for_internet(max_wait: int = 300, url: str = "https://www.google.com"):
         time.sleep(5)
 
 
+
 def main():
     # Connect to router
     with Connection(f"http://{ROUTER_USER}:{ROUTER_PASS}@{ROUTER_IP}/") as conn:
@@ -94,8 +95,12 @@ def main():
         logging.info(f"Connected to router with uptime: {format_uptime(int(uptime))}.")
 
         logging.info(f"Measuring speed (pre-reboot)...")
-        download_speed, upload_speed, ping = measure_speed()
-        logging.info(f"Results: Download Speed: {download_speed:.2f} Mbps, Upload Speed: {upload_speed:.2f} Mbps, Ping: {ping:.2f} ms")
+        try:
+            download_speed, upload_speed, ping = measure_speed()
+            logging.info(f"Results: Download Speed: {download_speed:.2f} Mbps, Upload Speed: {upload_speed:.2f} Mbps, Ping: {ping:.2f} ms")
+        except speedtest.SpeedtestException:
+            logging.exception("Failed to measure speed. Skipping.")
+            pass
 
         logging.info("Rebooting!")
         client.device.reboot()
@@ -115,9 +120,13 @@ def main():
         return
 
     logging.info(f"Measuring speed (post-reboot)...")
-    download_speed, upload_speed, ping = measure_speed()
-    logging.info(
-        f"Results: Download Speed: {download_speed:.2f} Mbps, Upload Speed: {upload_speed:.2f} Mbps, Ping: {ping:.2f} ms")
+    try:
+        download_speed, upload_speed, ping = measure_speed()
+        logging.info(
+            f"Results: Download Speed: {download_speed:.2f} Mbps, Upload Speed: {upload_speed:.2f} Mbps, Ping: {ping:.2f} ms")
+    except speedtest.SpeedtestException:
+        logging.exception("Failed to measure speed. Skipping.")
+        pass
 
 if __name__ == "__main__":
     main()
